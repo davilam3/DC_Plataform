@@ -26,3 +26,6 @@ COPY --from=build /app/build/libs/*.jar app.jar
 
 # Puerto estándar para contenedores / Render
 EXPOSE 8080
+
+# Ejecutar la aplicación
+ENTRYPOINT ["java","-jar","app.jar"]
