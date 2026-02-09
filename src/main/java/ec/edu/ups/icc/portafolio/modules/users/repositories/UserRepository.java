@@ -15,6 +15,7 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
+
     Optional<UserEntity> findByEmail(String email);
 
     boolean existsByEmail(String email);
@@ -26,9 +27,11 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Page<UserEntity> findByNameContainingIgnoreCaseAndEmailContainingIgnoreCase(
             String name, String email, Pageable pageable);
 
-    List<UserEntity> findByRolesContaining(RoleEntity role);
+    @Query("SELECT u FROM UserEntity u WHERE :role MEMBER OF u.roles")
+    List<UserEntity> findByRole(RoleEntity role);
 
-    Page<UserEntity> findByRolesContaining(RoleEntity role, Pageable pageable);
+    @Query("SELECT u FROM UserEntity u WHERE :role MEMBER OF u.roles")
+    Page<UserEntity> findByRole(RoleEntity role, Pageable pageable);
 
     @Query("SELECT u FROM UserEntity u JOIN u.roles r WHERE r.name = :roleName")
     Page<UserEntity> findByRoleName(@Param("roleName") String roleName, Pageable pageable);

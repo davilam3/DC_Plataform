@@ -142,10 +142,11 @@ public class UserServiceImpl implements UserService {
         RoleEntity programmerRole = roleRepository.findByName(RoleName.ROLE_PROGRAMMER)
                 .orElseThrow(() -> new NotFoundException("Rol PROGRAMMER no encontrado"));
 
-        return userRepository.findByRolesContaining(programmerRole)
-                .stream()
-                .map(userMapper::toDto)
-                .collect(Collectors.toList());
+        return userRepository.findByRole(programmerRole)
+        .stream()
+        .map(userMapper::toDto)
+        .collect(Collectors.toList());
+
     }
 
     @Override
@@ -156,8 +157,9 @@ public class UserServiceImpl implements UserService {
             RoleEntity roleEntity = roleRepository.findByName(roleEnum)
                     .orElseThrow(() -> new NotFoundException("Rol no encontrado: " + role));
 
-            return userRepository.findByRolesContaining(roleEntity, pageable)
-                    .map(userMapper::toDto);
+            return userRepository.findByRole(roleEntity, pageable)
+        .map(userMapper::toDto);
+
         }
 
         if (name != null && email != null) {

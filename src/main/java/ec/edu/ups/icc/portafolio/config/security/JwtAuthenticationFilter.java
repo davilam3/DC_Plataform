@@ -20,52 +20,67 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+    private static final Logger logger =
+            LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     private final JwtUtil jwtUtil;
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtProperties jwtProperties;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil,
+    public JwtAuthenticationFilter(
+            JwtUtil jwtUtil,
             UserDetailsServiceImpl userDetailsService,
-            JwtProperties jwtProperties) {
+            JwtProperties jwtProperties
+    ) {
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.jwtProperties = jwtProperties;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
+    protected void doFilterInternal(
+            HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
-        
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        String path = request.getServletPath();
+
+        // 🔓 Endpoints públicos
+        if (isPublicEndpoint(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
-            // ✅ AGREGAR: Verificar si es un endpoint público ANTES de procesar JWT
-            String path = request.getServletPath();
-            
-            // Lista de endpoints públicos que NO requieren autenticación
-            if (isPublicEndpoint(path)) {
-                filterChain.doFilter(request, response);
-                return;
-            }
-            
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && jwtUtil.validateToken(jwt)) {
+            if (jwt != null && jwtUtil.validateToken(jwt)) {
+
                 String email = jwtUtil.getEmailFromToken(jwt);
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities());
+                UserDetails userDetails =
+                        userDetailsService.loadUserByUsername(email);
 
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-                logger.debug("Usuario autenticado: {}", email);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities()
+                        );
+
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource()
+                                .buildDetails(request)
+                );
+
+                SecurityContextHolder.getContext()
+                        .setAuthentication(authentication);
             }
 
         } catch (Exception ex) {
-            logger.error("No se pudo establecer la autenticación del usuario", ex);
+            SecurityContextHolder.clearContext();
+            logger.error("Error procesando JWT", ex);
         }
 
         filterChain.doFilter(request, response);
@@ -74,19 +89,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader(jwtProperties.getHeader());
 
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(jwtProperties.getPrefix())) {
-            return bearerToken.substring(jwtProperties.getPrefix().length());
+        if (!StringUtils.hasText(bearerToken)) {
+            return null;
         }
 
-        return null;
+        if (!bearerToken.startsWith(jwtProperties.getPrefix() + " ")) {
+            return null;
+        }
+
+        return bearerToken.substring(
+                (jwtProperties.getPrefix() + " ").length()
+        );
     }
-    
-    // ✅ MÉTODO NUEVO: Identificar endpoints públicos
+
     private boolean isPublicEndpoint(String path) {
-        // Lista de endpoints que NO requieren token
-        return path.startsWith("/api/auth/") ||
-               path.equals("/api/public/") ||
-               path.startsWith("/swagger-ui/") ||
-               path.startsWith("/v3/api-docs/");
+        return path.startsWith("/api/auth/")
+                || path.startsWith("/swagger-ui/")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/actuator/health");
     }
 }
