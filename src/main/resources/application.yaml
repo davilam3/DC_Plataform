@@ -1,11 +1,11 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${PGHOST:localhost}:${PGPORT:5432}/${PGDATABASE:devdb}
-    username: ${PGUSER:ups}
-    password: ${PGPASSWORD:ups123}
+    url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=require
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
     hikari:
       connection-timeout: 30000
-  
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -15,23 +15,11 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-# JWT Configuration (MÍNIMO 32 CARACTERES)
 jwt:
-  secret: ${PGJWTSECRET:EstaEsMiClaveSecretaSuperLargaParaJWT256Bits2024!!}
+  secret: ${PGJWTSECRET}
   expiration: 86400000
-  header: "Authorization"
-  prefix: "Bearer "
+  header: Authorization
+  prefix: Bearer
 
 server:
   port: 8080
-
-# ACTIVA TODOS LOS LOGS
-logging:
-  level:
-    root: INFO
-    org.springframework: DEBUG
-    org.springframework.web: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate: DEBUG
-    ec.edu.ups.icc: TRACE
-    jakarta.persistence: DEBUG
