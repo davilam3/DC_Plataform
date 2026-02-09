@@ -12,6 +12,7 @@ src/main/java/ec/edu/ups/icc/portafolio/config/
 │   └──UserSecurity.java                 
 ├── EmailConfig.java
 └── DataInitializer.java
+└── JacksonConfig.java
 ├── modules/
 │ ├── appointments/ # Gestión de citas
 │ │ ├── controllers/
@@ -205,42 +206,67 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+    private static final Logger logger =
+            LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     private final JwtUtil jwtUtil;
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtProperties jwtProperties;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil,
+    public JwtAuthenticationFilter(
+            JwtUtil jwtUtil,
             UserDetailsServiceImpl userDetailsService,
-            JwtProperties jwtProperties) {
+            JwtProperties jwtProperties
+    ) {
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.jwtProperties = jwtProperties;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
+    protected void doFilterInternal(
+            HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        String path = request.getServletPath();
+
+        // 🔓 Endpoints públicos
+        if (isPublicEndpoint(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && jwtUtil.validateToken(jwt)) {
+            if (jwt != null && jwtUtil.validateToken(jwt)) {
+
                 String email = jwtUtil.getEmailFromToken(jwt);
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities());
+                UserDetails userDetails =
+                        userDetailsService.loadUserByUsername(email);
 
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-                logger.debug("Usuario autenticado: {}", email);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities()
+                        );
+
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource()
+                                .buildDetails(request)
+                );
+
+                SecurityContextHolder.getContext()
+                        .setAuthentication(authentication);
             }
 
         } catch (Exception ex) {
-            logger.error("No se pudo establecer la autenticación del usuario", ex);
+            SecurityContextHolder.clearContext();
+            logger.error("Error procesando JWT", ex);
         }
 
         filterChain.doFilter(request, response);
@@ -249,11 +275,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader(jwtProperties.getHeader());
 
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(jwtProperties.getPrefix())) {
-            return bearerToken.substring(jwtProperties.getPrefix().length());
+        if (!StringUtils.hasText(bearerToken)) {
+            return null;
         }
 
-        return null;
+        if (!bearerToken.startsWith(jwtProperties.getPrefix() + " ")) {
+            return null;
+        }
+
+        return bearerToken.substring(
+                (jwtProperties.getPrefix() + " ").length()
+        );
+    }
+
+    private boolean isPublicEndpoint(String path) {
+        return path.startsWith("/api/auth/")
+                || path.startsWith("/swagger-ui/")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/actuator/health");
     }
 }
 
@@ -450,36 +489,176 @@ public class JwtUtil {
 ```java
 package ec.edu.ups.icc.portafolio.config.security;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
+
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+            JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        config.setAllowedOrigins(List.of(
+                "http://localhost:4200",
+                "https://dc-plataform.onrender.com"));
+
+        config.setAllowedMethods(List.of(
+                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+        config.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "Accept"));
+
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                // Permitir TODO sin autenticación
-                .anyRequest().permitAll()
-            );
-        
+                .csrf(csrf -> csrf.disable())
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint))
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // ======== ENDPOINTS PÚBLICOS ========
+                        // Auth
+                        .requestMatchers("/api/auth/**").permitAll()
+
+                        // Portfolios (públicos para explorar)
+                        .requestMatchers(HttpMethod.GET, "/api/portfolios").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/portfolios/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/portfolios/speciality/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/portfolios/available").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/portfolios/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/portfolios/user/{userId}").authenticated()
+
+                        // Projects (públicos para explorar)
+                        .requestMatchers(HttpMethod.GET, "/api/projects").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/portfolios/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/projects/portfolio/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/projects/type/{projectType}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/projects/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/projects/portfolio/{portfolioId}/count").authenticated()
+
+                        // Availabilities (públicos para explorar)
+                        .requestMatchers(HttpMethod.GET, "/api/availabilities/programmer/{programmerId}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/availabilities/programmer/{programmerId}/available")
+                        .permitAll()
+
+                        // ======== ADMIN ENDPOINTS ========
+                        // Users - Solo ADMIN
+                        .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/users/*").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/users/{id}").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/users/search").hasRole("ADMIN")
+
+                        // Appointments - ADMIN ve todo
+                        .requestMatchers(HttpMethod.GET, "/api/appointments").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/appointments/programmer/{programmerId}").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/appointments/client/{clientId}").hasRole("ADMIN")
+
+                        // Availabilities - ADMIN gestiona cualquier disponibilidad
+                        .requestMatchers(HttpMethod.POST, "/api/availabilities").hasAnyRole("ADMIN", "PROGRAMMER")
+                        .requestMatchers(HttpMethod.PUT, "/api/availabilities/{id}").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/availabilities/{id}").hasRole("ADMIN")
+
+                        // Notifications - ADMIN panel de control
+                        .requestMatchers(HttpMethod.GET, "/api/notifications").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/notifications").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/notifications/{id}").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/notifications/user/{userId}").hasRole("ADMIN")
+
+                        // ======== PROGRAMMER ENDPOINTS ========
+                        // Portfolios - PROGRAMMER gestiona solo el suyo
+                        .requestMatchers(HttpMethod.POST, "/api/portfolios").hasAnyRole("ADMIN", "PROGRAMMER")
+                        .requestMatchers(HttpMethod.PUT, "/api/portfolios/{id}").hasAnyRole("ADMIN", "PROGRAMMER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/portfolios/{id}").hasAnyRole("ADMIN", "PROGRAMMER")
+
+                        // Projects - PROGRAMMER gestiona solo sus proyectos
+                        .requestMatchers(HttpMethod.POST, "/api/projects").hasAnyRole("ADMIN", "PROGRAMMER")
+                        .requestMatchers(HttpMethod.PUT, "/api/projects/{id}").hasAnyRole("ADMIN", "PROGRAMMER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/projects/{id}").hasAnyRole("ADMIN", "PROGRAMMER")
+
+                        // Appointments - PROGRAMMER gestiona sus citas
+                        .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
+                        .hasAnyRole("ADMIN", "PROGRAMMER")
+                        .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
+                        .hasAnyRole("ADMIN", "PROGRAMMER")
+                        .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
+                        .hasAnyRole("ADMIN", "PROGRAMMER")
+
+                        // ======== USER ENDPOINTS ========
+                        // Appointments - USER crea y gestiona sus citas
+                        .requestMatchers(HttpMethod.POST, "/api/appointments").hasAnyRole("USER", "ADMIN", "PROGRAMMER")
+                        .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
+                        .hasAnyRole("USER", "ADMIN", "PROGRAMMER")
+
+                        // Users - Cada usuario gestiona su perfil
+                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/users/{id}").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/users/{id}").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/users/programmers").permitAll()
+
+                        // Notifications - Cada usuario gestiona sus notificaciones
+                        .requestMatchers(HttpMethod.GET, "/api/notifications/user/{userId}").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/notifications/user/{userId}/unread").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/notifications/user/{userId}/count-unread")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/notifications/*/mark-as-read").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/notifications/user/{userId}/mark-all-as-read")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/notifications/types").hasRole("ADMIN")
+
+                        // ======== ENDPOINTS COMPARTIDOS ========
+                        .requestMatchers(HttpMethod.GET, "/api/appointments/upcoming").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/appointments/status/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/appointments/search").authenticated()
+
+                        // Cualquier otra solicitud requiere autenticación
+                        .anyRequest().authenticated());
+
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 
-    // ✅ AGREGA ESTOS BEANS
     @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration authConfig) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
     }
 
@@ -889,11 +1068,11 @@ public class DataInitializer {
             PasswordEncoder passwordEncoder) {
         return args -> {
             // Email del admin por defecto (puedes cambiarlo)
-            String adminEmail = "admin@portfolio.com";
+            String adminEmail = "admin@portafolio.com";
             
             // Verificar si ya existe el admin
             if (userRepository.findByEmail(adminEmail).isEmpty()) {
-                System.out.println("👑 Creando usuario administrador por defecto...");
+                System.out.println(" Creando usuario administrador por defecto...");
                 
                 // Buscar rol ADMIN
                 RoleEntity adminRole = roleRepository.findByName(RoleName.ROLE_ADMIN)
@@ -903,7 +1082,7 @@ public class DataInitializer {
                 UserEntity adminUser = new UserEntity();
                 adminUser.setName("Administrador del Sistema");
                 adminUser.setEmail(adminEmail);
-                adminUser.setPassword(passwordEncoder.encode("Admin123")); // Contraseña por defecto
+                adminUser.setPassword(passwordEncoder.encode("Admin123"));
                 adminUser.setBio("Administrador principal del sistema");
                 
                 // Asignar rol ADMIN
@@ -913,18 +1092,38 @@ public class DataInitializer {
                 
                 userRepository.save(adminUser);
                 
-                System.out.println("✅ Usuario administrador creado exitosamente");
-                System.out.println("📧 Email: " + adminEmail);
-                System.out.println("🔑 Contraseña: Admin123");
-                System.out.println("⚠️ IMPORTANTE: Cambia la contraseña después del primer login");
+                System.out.println(" Usuario administrador creado exitosamente");
+                System.out.println(" Email: " + adminEmail);
+                System.out.println(" Contraseña: Admin123");
+                System.out.println(" IMPORTANTE: Cambia la contraseña después del primer login");
             } else {
-                System.out.println("✅ Usuario administrador ya existe");
+                System.out.println("Usuario administrador ya existe");
             }
         };
     }
 }
+```
+
+### JacksonConfig.java
+
+```java
+package ec.edu.ups.icc.portafolio.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class JacksonConfig {
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
+}
 
 ```
+
 ## Citas (/modules/appointments/)
 ### AppointmentController.java
 
@@ -2386,10 +2585,11 @@ public class UserServiceImpl implements UserService {
         RoleEntity programmerRole = roleRepository.findByName(RoleName.ROLE_PROGRAMMER)
                 .orElseThrow(() -> new NotFoundException("Rol PROGRAMMER no encontrado"));
 
-        return userRepository.findByRolesContaining(programmerRole)
-                .stream()
-                .map(userMapper::toDto)
-                .collect(Collectors.toList());
+        return userRepository.findByRole(programmerRole)
+        .stream()
+        .map(userMapper::toDto)
+        .collect(Collectors.toList());
+
     }
 
     @Override
@@ -2400,8 +2600,9 @@ public class UserServiceImpl implements UserService {
             RoleEntity roleEntity = roleRepository.findByName(roleEnum)
                     .orElseThrow(() -> new NotFoundException("Rol no encontrado: " + role));
 
-            return userRepository.findByRolesContaining(roleEntity, pageable)
-                    .map(userMapper::toDto);
+            return userRepository.findByRole(roleEntity, pageable)
+        .map(userMapper::toDto);
+
         }
 
         if (name != null && email != null) {
@@ -2525,6 +2726,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
@@ -2534,14 +2736,20 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+    public UserDetails loadUserByUsername(String email)
+            throws UsernameNotFoundException {
+
         UserEntity user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con email: " + email));
+                .orElseThrow(() ->
+                        new UsernameNotFoundException(
+                                "Usuario no encontrado con email: " + email
+                        )
+                );
 
         return UserDetailsImpl.build(user);
     }
 }
+
 ```
 ### UserMapper.java
 ```java

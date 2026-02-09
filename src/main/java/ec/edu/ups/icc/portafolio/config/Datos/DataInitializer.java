@@ -103,11 +103,11 @@ public class DataInitializer {
             PasswordEncoder passwordEncoder) {
         return args -> {
             // Email del admin por defecto (puedes cambiarlo)
-            String adminEmail = "admin@portfolio.com";
+            String adminEmail = "admin@portafolio.com";
             
             // Verificar si ya existe el admin
             if (userRepository.findByEmail(adminEmail).isEmpty()) {
-                System.out.println("👑 Creando usuario administrador por defecto...");
+                System.out.println(" Creando usuario administrador por defecto...");
                 
                 // Buscar rol ADMIN
                 RoleEntity adminRole = roleRepository.findByName(RoleName.ROLE_ADMIN)
@@ -117,7 +117,7 @@ public class DataInitializer {
                 UserEntity adminUser = new UserEntity();
                 adminUser.setName("Administrador del Sistema");
                 adminUser.setEmail(adminEmail);
-                adminUser.setPassword(passwordEncoder.encode("Admin123")); // Contraseña por defecto
+                adminUser.setPassword(passwordEncoder.encode("Admin123"));
                 adminUser.setBio("Administrador principal del sistema");
                 
                 // Asignar rol ADMIN
@@ -127,12 +127,12 @@ public class DataInitializer {
                 
                 userRepository.save(adminUser);
                 
-                System.out.println("✅ Usuario administrador creado exitosamente");
-                System.out.println("📧 Email: " + adminEmail);
-                System.out.println("🔑 Contraseña: Admin123");
-                System.out.println("⚠️ IMPORTANTE: Cambia la contraseña después del primer login");
+                System.out.println(" Usuario administrador creado exitosamente");
+                System.out.println(" Email: " + adminEmail);
+                System.out.println(" Contraseña: Admin123");
+                System.out.println(" IMPORTANTE: Cambia la contraseña después del primer login");
             } else {
-                System.out.println("✅ Usuario administrador ya existe");
+                System.out.println("Usuario administrador ya existe");
             }
         };
     }
