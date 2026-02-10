@@ -20,8 +20,7 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final Logger logger =
-            LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtUtil jwtUtil;
     private final UserDetailsServiceImpl userDetailsService;
@@ -30,8 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(
             JwtUtil jwtUtil,
             UserDetailsServiceImpl userDetailsService,
-            JwtProperties jwtProperties
-    ) {
+            JwtProperties jwtProperties) {
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.jwtProperties = jwtProperties;
@@ -41,10 +39,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+            FilterChain filterChain) throws ServletException, IOException {
 
-        String path = request.getServletPath();
+        String path = request.getRequestURI();
 
         // 🔓 Endpoints públicos
         if (isPublicEndpoint(path)) {
@@ -59,20 +56,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 String email = jwtUtil.getEmailFromToken(jwt);
 
-                UserDetails userDetails =
-                        userDetailsService.loadUserByUsername(email);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()
-                        );
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities());
 
                 authentication.setDetails(
                         new WebAuthenticationDetailsSource()
-                                .buildDetails(request)
-                );
+                                .buildDetails(request));
 
                 SecurityContextHolder.getContext()
                         .setAuthentication(authentication);
@@ -98,8 +91,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         return bearerToken.substring(
-                (jwtProperties.getPrefix() + " ").length()
-        );
+                (jwtProperties.getPrefix() + " ").length());
     }
 
     private boolean isPublicEndpoint(String path) {
