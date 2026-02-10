@@ -24,157 +24,189 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+        private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
-            JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-    }
+        public SecurityConfig(JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+                        JwtAuthenticationFilter jwtAuthenticationFilter) {
+                this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+                this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
+        @Bean
+        public CorsConfigurationSource corsConfigurationSource() {
+                CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of(
-                "http://localhost:4200",
-                "https://dc-plataform.onrender.com"));
+                // 🔥 PERMITIR CUALQUIER ORIGEN (Angular prod + dev)
+                config.setAllowedOriginPatterns(List.of("*"));
 
-        config.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                config.setAllowedMethods(List.of(
+                                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
-        config.setAllowedHeaders(List.of(
-                "Authorization",
-                "Content-Type",
-                "Accept"));
+                config.setAllowedHeaders(List.of("*"));
 
-        config.setAllowCredentials(true);
+                config.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                source.registerCorsConfiguration("/**", config);
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(jwtAuthenticationEntryPoint))
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        // ======== ENDPOINTS PÚBLICOS ========
-                        // Auth
-                        .requestMatchers("/api/auth/**").permitAll()
+                return source;
+        }
 
-                        // Portfolios (públicos para explorar)
-                        .requestMatchers(HttpMethod.GET, "/api/portfolios").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/portfolios/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/portfolios/speciality/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/portfolios/available").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/portfolios/search").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/portfolios/user/{userId}").authenticated()
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+                http
+                                .csrf(csrf -> csrf.disable())
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint(jwtAuthenticationEntryPoint))
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .authorizeHttpRequests(auth -> auth
+                                                // ======== ENDPOINTS PÚBLICOS ========
+                                                // Auth
+                                                .requestMatchers("/api/auth/**").permitAll()
 
-                        // Projects (públicos para explorar)
-                        .requestMatchers(HttpMethod.GET, "/api/projects").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/portfolios/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/projects/portfolio/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/projects/type/{projectType}").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/projects/search").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/projects/portfolio/{portfolioId}/count").authenticated()
+                                                // Portfolios (públicos para explorar)
+                                                .requestMatchers(HttpMethod.GET, "/api/portfolios").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/portfolios/*").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/portfolios/speciality/*")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/portfolios/available")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/portfolios/search").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/portfolios/user/{userId}")
+                                                .authenticated()
 
-                        // Availabilities (públicos para explorar)
-                        .requestMatchers(HttpMethod.GET, "/api/availabilities/programmer/{programmerId}").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/availabilities/programmer/{programmerId}/available")
-                        .permitAll()
+                                                // Projects (públicos para explorar)
+                                                .requestMatchers(HttpMethod.GET, "/api/projects").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/portfolios/*").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/projects/portfolio/*")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/projects/type/{projectType}")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/projects/search").permitAll()
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/projects/portfolio/{portfolioId}/count")
+                                                .authenticated()
 
-                        // ======== ADMIN ENDPOINTS ========
-                        // Users - Solo ADMIN
-                        .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/users/*").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/users/{id}").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/users/search").hasRole("ADMIN")
+                                                // Availabilities (públicos para explorar)
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/availabilities/programmer/{programmerId}")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/availabilities/programmer/{programmerId}/available")
+                                                .permitAll()
 
-                        // Appointments - ADMIN ve todo
-                        .requestMatchers(HttpMethod.GET, "/api/appointments").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/appointments/programmer/{programmerId}").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/appointments/client/{clientId}").hasRole("ADMIN")
+                                                // ======== ADMIN ENDPOINTS ========
+                                                // Users - Solo ADMIN
+                                                .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.PUT, "/api/users/*").hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/users/{id}").hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/users/search").hasRole("ADMIN")
 
-                        // Availabilities - ADMIN gestiona cualquier disponibilidad
-                        .requestMatchers(HttpMethod.POST, "/api/availabilities").hasAnyRole("ADMIN", "PROGRAMMER")
-                        .requestMatchers(HttpMethod.PUT, "/api/availabilities/{id}").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/availabilities/{id}").hasRole("ADMIN")
+                                                // Appointments - ADMIN ve todo
+                                                .requestMatchers(HttpMethod.GET, "/api/appointments").hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/appointments/programmer/{programmerId}")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/appointments/client/{clientId}")
+                                                .hasRole("ADMIN")
 
-                        // Notifications - ADMIN panel de control
-                        .requestMatchers(HttpMethod.GET, "/api/notifications").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/notifications").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/notifications/{id}").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/notifications/user/{userId}").hasRole("ADMIN")
+                                                // Availabilities - ADMIN gestiona cualquier disponibilidad
+                                                .requestMatchers(HttpMethod.POST, "/api/availabilities")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
+                                                .requestMatchers(HttpMethod.PUT, "/api/availabilities/{id}")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/availabilities/{id}")
+                                                .hasRole("ADMIN")
 
-                        // ======== PROGRAMMER ENDPOINTS ========
-                        // Portfolios - PROGRAMMER gestiona solo el suyo
-                        .requestMatchers(HttpMethod.POST, "/api/portfolios").hasAnyRole("ADMIN", "PROGRAMMER")
-                        .requestMatchers(HttpMethod.PUT, "/api/portfolios/{id}").hasAnyRole("ADMIN", "PROGRAMMER")
-                        .requestMatchers(HttpMethod.DELETE, "/api/portfolios/{id}").hasAnyRole("ADMIN", "PROGRAMMER")
+                                                // Notifications - ADMIN panel de control
+                                                .requestMatchers(HttpMethod.GET, "/api/notifications").hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/notifications").hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/notifications/{id}")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/notifications/user/{userId}")
+                                                .hasRole("ADMIN")
 
-                        // Projects - PROGRAMMER gestiona solo sus proyectos
-                        .requestMatchers(HttpMethod.POST, "/api/projects").hasAnyRole("ADMIN", "PROGRAMMER")
-                        .requestMatchers(HttpMethod.PUT, "/api/projects/{id}").hasAnyRole("ADMIN", "PROGRAMMER")
-                        .requestMatchers(HttpMethod.DELETE, "/api/projects/{id}").hasAnyRole("ADMIN", "PROGRAMMER")
+                                                // ======== PROGRAMMER ENDPOINTS ========
+                                                // Portfolios - PROGRAMMER gestiona solo el suyo
+                                                .requestMatchers(HttpMethod.POST, "/api/portfolios")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
+                                                .requestMatchers(HttpMethod.PUT, "/api/portfolios/{id}")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/portfolios/{id}")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
 
-                        // Appointments - PROGRAMMER gestiona sus citas
-                        .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
-                        .hasAnyRole("ADMIN", "PROGRAMMER")
-                        .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
-                        .hasAnyRole("ADMIN", "PROGRAMMER")
-                        .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
-                        .hasAnyRole("ADMIN", "PROGRAMMER")
+                                                // Projects - PROGRAMMER gestiona solo sus proyectos
+                                                .requestMatchers(HttpMethod.POST, "/api/projects")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
+                                                .requestMatchers(HttpMethod.PUT, "/api/projects/{id}")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/projects/{id}")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
 
-                        // ======== USER ENDPOINTS ========
-                        // Appointments - USER crea y gestiona sus citas
-                        .requestMatchers(HttpMethod.POST, "/api/appointments").hasAnyRole("USER", "ADMIN", "PROGRAMMER")
-                        .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
-                        .hasAnyRole("USER", "ADMIN", "PROGRAMMER")
+                                                // Appointments - PROGRAMMER gestiona sus citas
+                                                .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
+                                                .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
+                                                .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
+                                                .hasAnyRole("ADMIN", "PROGRAMMER")
 
-                        // Users - Cada usuario gestiona su perfil
-                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").authenticated()
-                        .requestMatchers(HttpMethod.PUT, "/api/users/{id}").authenticated()
-                        .requestMatchers(HttpMethod.PATCH, "/api/users/{id}").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/users/programmers").permitAll()
+                                                // ======== USER ENDPOINTS ========
+                                                // Appointments - USER crea y gestiona sus citas
+                                                .requestMatchers(HttpMethod.POST, "/api/appointments")
+                                                .hasAnyRole("USER", "ADMIN", "PROGRAMMER")
+                                                .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/*")
+                                                .hasAnyRole("USER", "ADMIN", "PROGRAMMER")
 
-                        // Notifications - Cada usuario gestiona sus notificaciones
-                        .requestMatchers(HttpMethod.GET, "/api/notifications/user/{userId}").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/notifications/user/{userId}/unread").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/notifications/user/{userId}/count-unread")
-                        .authenticated()
-                        .requestMatchers(HttpMethod.PUT, "/api/notifications/*/mark-as-read").authenticated()
-                        .requestMatchers(HttpMethod.PUT, "/api/notifications/user/{userId}/mark-all-as-read")
-                        .authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/notifications/types").hasRole("ADMIN")
+                                                // Users - Cada usuario gestiona su perfil
+                                                .requestMatchers(HttpMethod.GET, "/api/users/{id}").authenticated()
+                                                .requestMatchers(HttpMethod.PUT, "/api/users/{id}").authenticated()
+                                                .requestMatchers(HttpMethod.PATCH, "/api/users/{id}").authenticated()
+                                                .requestMatchers(HttpMethod.GET, "/api/users/programmers").permitAll()
 
-                        // ======== ENDPOINTS COMPARTIDOS ========
-                        .requestMatchers(HttpMethod.GET, "/api/appointments/upcoming").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/appointments/status/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/appointments/search").authenticated()
+                                                // Notifications - Cada usuario gestiona sus notificaciones
+                                                .requestMatchers(HttpMethod.GET, "/api/notifications/user/{userId}")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/notifications/user/{userId}/unread")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/notifications/user/{userId}/count-unread")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.PUT, "/api/notifications/*/mark-as-read")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.PUT,
+                                                                "/api/notifications/user/{userId}/mark-all-as-read")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.GET, "/api/notifications/types")
+                                                .hasRole("ADMIN")
 
-                        // Cualquier otra solicitud requiere autenticación
-                        .anyRequest().authenticated());
+                                                // ======== ENDPOINTS COMPARTIDOS ========
+                                                .requestMatchers(HttpMethod.GET, "/api/appointments/upcoming")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.GET, "/api/appointments/status/**")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.GET, "/api/appointments/search")
+                                                .authenticated()
 
-        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                                                // Cualquier otra solicitud requiere autenticación
+                                                .anyRequest().authenticated());
 
-        return http.build();
-    }
+                http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-        return authConfig.getAuthenticationManager();
-    }
+                return http.build();
+        }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+        @Bean
+        public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+                return authConfig.getAuthenticationManager();
+        }
+
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
+        }
 }
