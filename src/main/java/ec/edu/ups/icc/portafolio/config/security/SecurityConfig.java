@@ -37,14 +37,13 @@ public class SecurityConfig {
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration config = new CorsConfiguration();
 
-                // 🔥 PERMITIR CUALQUIER ORIGEN (Angular prod + dev)
-                config.setAllowedOriginPatterns(List.of("*"));
+                config.setAllowedOriginPatterns(List.of(
+                                "http://localhost:4200"));
 
                 config.setAllowedMethods(List.of(
                                 "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
                 config.setAllowedHeaders(List.of("*"));
-
                 config.setAllowCredentials(true);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
