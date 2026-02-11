@@ -15,18 +15,8 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  # ✨ Google OAuth2 - MISMO PATRÓN QUE NEON
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID:dev-123.apps.googleusercontent.com}  # ← Igual que PGUSER
-            client-secret: ${GOOGLE_CLIENT_SECRET:dev-secret}  # ← Igual que PGPASSWORD
-            scope: email,profile
-
 jwt:
-  secret: ${JWT_SECRET:mySecretKeyForJWT2024MustBeAtLeast256BitsLongForHS256Algorithm}  # ← También debería ser variable
+  secret: ${JWT_SECRET:mySecretKeyForJWT2024MustBeAtLeast256BitsLongForHS256Algorithm} 
   expiration: 86400000
   header: Authorization
   prefix: "Bearer "
