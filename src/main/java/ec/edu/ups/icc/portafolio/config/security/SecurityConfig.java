@@ -37,14 +37,15 @@ public class SecurityConfig {
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration config = new CorsConfiguration();
 
-                config.setAllowedOriginPatterns(List.of(
-                                "http://localhost:4200"));
+                // Mantener solo lo esencial o usar configuración más abierta
+                config.setAllowedOriginPatterns(List.of("*")); // Permitir todos en desarrollo
+                // O específicos:
+                // config.setAllowedOrigins(List.of("http://localhost:4200"));
 
-                config.setAllowedMethods(List.of(
-                                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-
+                config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 config.setAllowedHeaders(List.of("*"));
                 config.setAllowCredentials(true);
+                config.setMaxAge(3600L);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
                 source.registerCorsConfiguration("/**", config);
@@ -55,6 +56,9 @@ public class SecurityConfig {
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
                 http
+                                .cors(cors -> {
+                                })
+
                                 .csrf(csrf -> csrf.disable())
                                 .exceptionHandling(exception -> exception
                                                 .authenticationEntryPoint(jwtAuthenticationEntryPoint))

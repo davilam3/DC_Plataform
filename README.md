@@ -20,7 +20,7 @@
 
 ## Estructura
 ```java
-src/main/java/ec/edu/ups/icc/portafolio/config/
+src/main/java/ec/edu/ups/icc/portafolio/confirg/
 ├── security/
 │   ├── JwtAuthenticationEntryPoint.java
 │   ├── JwtAuthenticationFilter.java
